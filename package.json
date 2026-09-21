@@ -1,0 +1,15 @@
+{
+  "name": "fantasy-hockey-draft",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Peanut Punch fantasy hockey draft room.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

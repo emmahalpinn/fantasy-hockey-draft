@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Peanut Punch Hockey Room</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <header class="brand">
+          <div class="puck-logo" aria-hidden="true"><span>PP</span></div>
+          <p class="eyebrow">Peanut Punch · On Ice</p>
+          <h1>Hockey Room</h1>
+          <p>Live value, roster balance, and a clean board for draft night.</p>
+        </header>
+
+        <section class="panel">
+          <h2>League settings</h2>
+          <div class="field-pair">
+            <label>Teams
+              <select id="teams">
+                <option>8</option><option>10</option><option selected>12</option><option>14</option>
+              </select>
+            </label>
+            <label>Draft slot
+              <select id="slot"></select>
+            </label>
+          </div>
+          <label>Scoring style
+            <select id="scoring">
+              <option value="points" selected>Points</option>
+              <option value="categories">Categories</option>
+            </select>
+          </label>
+          <label>Current overall pick
+            <input id="currentPick" type="number" min="1" value="1" />
+          </label>
+          <div class="button-row">
+            <button id="prevPick">← Previous</button>
+            <button id="nextPick" class="primary">Next pick →</button>
+          </div>
+        </section>
+
+        <section class="panel clock">
+          <p class="eyebrow">On the clock</p>
+          <strong id="pickLabel">1.01</strong>
+          <span id="pickOwner">Your pick</span>
+          <p id="nextMine">Your next pick: 1.01</p>
+        </section>
+
+        <section class="panel">
+          <h2>Sleeper draft sync</h2>
+          <label>Draft ID or URL
+            <input id="sleeperInput" type="text" placeholder="Paste a Sleeper draft URL" />
+          </label>
+          <button id="syncSleeper">Sync completed picks</button>
+          <p id="syncStatus" class="status">No draft linked.</p>
+        </section>
+
+        <section class="panel source-card">
+          <h2>Data status</h2>
+          <p id="sourceStatus" class="status">Loading verified hockey data…</p>
+          <button id="refreshData">Refresh data</button>
+        </section>
+
+        <button id="resetDraft" class="danger-button">Reset local draft</button>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">2026–27 draft desk</p>
+            <h2>Build a balanced roster</h2>
+          </div>
+          <nav>
+            <button class="tab active" data-view="board">Draft board</button>
+            <button class="tab" data-view="roster">My roster <span id="rosterCount">0</span></button>
+            <button class="tab" data-view="history">Draft log</button>
+          </nav>
+        </header>
+
+        <section id="boardView" class="view active">
+          <section class="recommendations">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Need-aware recommendations</p>
+                <h2>Best fits right now</h2>
+              </div>
+              <p id="needsSummary"></p>
+            </div>
+            <div id="recommendationGrid" class="recommendation-grid"></div>
+          </section>
+
+          <section class="toolbar">
+            <label>Position
+              <select id="positionFilter">
+                <option value="ALL">All positions</option>
+                <option value="C">C</option>
+                <option value="LW">LW</option>
+                <option value="RW">RW</option>
+                <option value="W">W (LW/RW)</option>
+                <option value="D">D</option>
+                <option value="G">G</option>
+              </select>
+            </label>
+            <label>Search
+              <input id="search" type="search" placeholder="Player or NHL team" />
+            </label>
+            <label class="check"><input id="availableOnly" type="checkbox" checked /> Available only</label>
+            <div class="board-meta">
+              <strong id="playerCount">—</strong>
+              <span id="boardStatus">Loading board…</span>
+            </div>
+          </section>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><button data-sort="rank">Rank</button></th>
+                  <th><button data-sort="name">Player</button></th>
+                  <th><button data-sort="position">Pos</button></th>
+                  <th><button data-sort="team">Team</button></th>
+                  <th><button data-sort="adp">ADP</button></th>
+                  <th><button data-sort="value">Value now</button></th>
+                  <th>Status</th>
+                  <th aria-label="Actions"></th>
+                </tr>
+              </thead>
+              <tbody id="playerRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="rosterView" class="view">
+          <div class="section-heading">
+            <div><p class="eyebrow">Peanut Punch</p><h2>My roster</h2></div>
+            <p>Suggested build: 3 C · 4 W · 4 D · 2 G, then best available.</p>
+          </div>
+          <div id="rosterTargets" class="targets"></div>
+          <div id="rosterList" class="card-list"></div>
+        </section>
+
+        <section id="historyView" class="view">
+          <div class="section-heading">
+            <div><p class="eyebrow">Every selection</p><h2>Draft log</h2></div>
+          </div>
+          <div id="historyList" class="card-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="playerDialog">
+      <button id="closeDialog" class="close" aria-label="Close">×</button>
+      <p class="eyebrow">Player detail</p>
+      <h2 id="detailName"></h2>
+      <div id="detailContent"></div>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
