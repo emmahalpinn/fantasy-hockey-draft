@@ -1,5 +1,6 @@
-const STORAGE_KEY = "peanut-punch-hockey-room-v1";
-const TARGETS = { C: 3, W: 4, D: 4, G: 2 };
+const STORAGE_KEY = "peanut-punch-hockey-room-v2";
+const TARGETS = { C: 2, LW: 2, RW: 2, D: 4, G: 2 };
+const BENCH_TARGET = 5;
 
 const state = {
   players: [],
@@ -11,7 +12,8 @@ const state = {
   sleeperDraftId: "",
   pollTimer: null,
   sources: null,
-  settings: { teams: 12, slot: 1, scoring: "points", currentPick: 1 },
+  activeDetailId: null,
+  settings: { teams: 12, slot: 1, scoring: "custom", currentPick: 1 },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -26,6 +28,7 @@ const els = {
   needsSummary: $("needsSummary"), rosterCount: $("rosterCount"), rosterTargets: $("rosterTargets"),
   rosterList: $("rosterList"), historyList: $("historyList"), playerDialog: $("playerDialog"),
   detailName: $("detailName"), detailContent: $("detailContent"), closeDialog: $("closeDialog"),
+  compareSelect: $("compareSelect"),
 };
 
 function escapeHtml(value) {
@@ -40,8 +43,8 @@ function normalizeName(value) {
 }
 
 function groupFor(position) {
-  if (["LW", "RW", "W"].includes(position)) return "W";
-  return ["C", "D", "G"].includes(position) ? position : "W";
+  if (position === "W") return "LW";
+  return ["C", "LW", "RW", "D", "G"].includes(position) ? position : "LW";
 }
 
 function pickLabel(pick) {
@@ -107,6 +110,8 @@ function restore() {
     state.history = saved.history || [];
     state.sleeperDraftId = saved.sleeperDraftId || "";
     state.settings = { ...state.settings, ...(saved.settings || {}) };
+    state.settings.teams = 12;
+    state.settings.scoring = "custom";
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -127,11 +132,20 @@ function renderSettings() {
 }
 
 function rosterCounts() {
-  const counts = { C: 0, W: 0, D: 0, G: 0 };
+  const counts = { C: 0, LW: 0, RW: 0, D: 0, G: 0, BN: 0 };
   for (const id of state.myTeam) {
     const player = getPlayer(id);
-    if (player) counts[groupFor(player.position)] += 1;
+    if (!player) continue;
+    if (player.position === "W") {
+      const wing = counts.LW <= counts.RW ? "LW" : "RW";
+      counts[wing] += 1;
+    } else {
+      counts[groupFor(player.position)] += 1;
+    }
   }
+  const startersUsed = Object.entries(TARGETS)
+    .reduce((total, [position, target]) => total + Math.min(counts[position], target), 0);
+  counts.BN = Math.max(0, state.myTeam.size - startersUsed);
   return counts;
 }
 
@@ -140,11 +154,15 @@ function needScore(player) {
   const group = groupFor(player.position);
   const deficit = Math.max(0, TARGETS[group] - counts[group]);
   const round = Math.floor((state.settings.currentPick - 1) / state.settings.teams) + 1;
-  let score = -Math.abs(player.adp - state.settings.currentPick) + deficit * 4;
+  let score =
+    -Math.abs(player.adp - state.settings.currentPick) +
+    deficit * 8 +
+    (Number.isFinite(player.fantasyPoints) ? player.fantasyPoints / 100 : 0);
   if (round <= 3 && group === "G" && counts.G === 0) score += 1.5;
   if (round >= 6 && group === "D" && counts.D < 2) score += 4;
   if (round >= 8 && group === "G" && counts.G < 2) score += 7;
-  if (counts[group] >= TARGETS[group]) score -= 6;
+  if (counts[group] >= TARGETS[group] && counts.BN < BENCH_TARGET) score -= 3;
+  if (counts.BN >= BENCH_TARGET && state.myTeam.size >= 17) score -= 50;
   return score;
 }
 
@@ -154,6 +172,7 @@ function recommendationReason(player) {
   const gap = valueAtPick(player);
   if (gap >= state.settings.teams) return `${gap} picks past ADP`;
   if (counts[group] < TARGETS[group]) return `Need ${group}: ${counts[group]}/${TARGETS[group]}`;
+  if (counts.BN < BENCH_TARGET) return `Best bench value · ${counts.BN}/${BENCH_TARGET} BN`;
   return "Best market value";
 }
 
@@ -167,12 +186,14 @@ function renderRecommendations() {
     .sort((a, b) => b.score - a.score || a.player.rank - b.player.rank)
     .slice(0, 5);
   const counts = rosterCounts();
-  els.needsSummary.textContent = `C ${counts.C}/${TARGETS.C} · W ${counts.W}/${TARGETS.W} · D ${counts.D}/${TARGETS.D} · G ${counts.G}/${TARGETS.G}`;
+  els.needsSummary.textContent =
+    `C ${counts.C}/${TARGETS.C} · LW ${counts.LW}/${TARGETS.LW} · RW ${counts.RW}/${TARGETS.RW} · ` +
+    `D ${counts.D}/${TARGETS.D} · G ${counts.G}/${TARGETS.G} · BN ${counts.BN}/${BENCH_TARGET}`;
   els.recommendationGrid.innerHTML = top.length ? top.map(({ player }, index) => `
     <article class="recommendation" data-rank="${index + 1}">
       <span class="pos">${escapeHtml(player.position)}</span>
       <h3>${escapeHtml(player.name)}</h3>
-      <p>${escapeHtml(player.team || "FA")} · ADP ${player.adp.toFixed(1)}</p>
+      <p>${escapeHtml(player.team || "FA")} · ADP ${player.adp.toFixed(1)}${Number.isFinite(player.fantasyPoints) ? ` · ${player.fantasyPoints.toFixed(1)} FPts` : ""}</p>
       <p class="fit">${escapeHtml(recommendationReason(player))}</p>
       <button data-action="mine" data-id="${escapeHtml(player.id)}">Draft to my team</button>
     </article>`).join("") : `<p class="status">No available ranked players match the board.</p>`;
@@ -197,6 +218,8 @@ function filteredPlayers() {
   return players.sort((a, b) => {
     const aValue = key === "value" ? valueAtPick(a) : a[key];
     const bValue = key === "value" ? valueAtPick(b) : b[key];
+    if (aValue == null && bValue != null) return 1;
+    if (bValue == null && aValue != null) return -1;
     if (typeof aValue === "number") return (aValue - bValue) * multiplier;
     return String(aValue || "").localeCompare(String(bValue || "")) * multiplier;
   });
@@ -219,6 +242,9 @@ function renderBoard() {
       <td><span class="pos">${escapeHtml(player.position)}</span></td>
       <td>${escapeHtml(player.team || "—")}</td>
       <td><strong>${player.adp.toFixed(1)}</strong><span class="sub">FP consensus</span></td>
+      <td>${Number.isFinite(player.fantasyPoints)
+        ? `<strong>${player.fantasyPoints.toFixed(1)}</strong><span class="sub">${player.statsSeason}</span>`
+        : "—"}</td>
       <td>${valueText(player)}</td>
       <td><span class="badge ${status === "My pick" ? "mine" : ""}">${status}</span>
         ${player.injury ? `<span class="badge injury">INJ</span>` : ""}</td>
@@ -229,7 +255,7 @@ function renderBoard() {
              <button data-action="taken" data-id="${escapeHtml(player.id)}">Taken</button>`}
       </div></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="empty">No players match these filters.</td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="empty">No players match these filters.</td></tr>`;
 }
 
 function renderClock() {
@@ -243,7 +269,7 @@ function renderClock() {
 function renderRoster() {
   const counts = rosterCounts();
   els.rosterCount.textContent = String(state.myTeam.size);
-  els.rosterTargets.innerHTML = Object.entries(TARGETS).map(([position, target]) => `
+  els.rosterTargets.innerHTML = [...Object.entries(TARGETS), ["BN", BENCH_TARGET]].map(([position, target]) => `
     <article class="target ${counts[position] >= target ? "complete" : ""}">
       <span>${position} target</span><strong>${counts[position]} / ${target}</strong>
     </article>`).join("");
@@ -269,10 +295,13 @@ function renderSources() {
   if (!state.sources) return;
   const fp = state.sources.fantasyPros;
   const sleeper = state.sources.sleeper;
+  const stats = state.sources.nhlStats;
   els.sourceStatus.innerHTML = [
     fp.connected ? `● FantasyPros: ${fp.count} ADP rows` : `○ FantasyPros: ${escapeHtml(fp.error)}`,
     sleeper.connected ? `● Sleeper: ${sleeper.count} profiles` : `○ Sleeper: ${escapeHtml(sleeper.error)}`,
-    "Stats: not wired in v1",
+    stats?.connected
+      ? `● NHL: ${stats.count} stat lines · ${stats.seasonId}`
+      : `○ NHL stats: ${escapeHtml(stats?.error || "unavailable")}`,
   ].join("<br>");
 }
 
@@ -298,6 +327,10 @@ function recordPick(player, mine, pick = state.settings.currentPick, teamSlot = 
 function markPlayer(id, action) {
   const player = getPlayer(id);
   if (!player) return;
+  if (action === "mine" && !state.myTeam.has(id) && state.myTeam.size >= 17) {
+    alert("Your roster is full: 12 starters and 5 bench players.");
+    return;
+  }
   if (action === "undo") {
     state.drafted.delete(id);
     state.myTeam.delete(id);
@@ -311,23 +344,75 @@ function markPlayer(id, action) {
   render();
 }
 
+const STAT_DEFINITIONS = [
+  ["fantasyPoints", "Fantasy points", true],
+  ["gamesPlayed", "Games played", true],
+  ["goals", "Goals", true],
+  ["assists", "Assists", true],
+  ["plusMinus", "+/-", true],
+  ["powerPlayPoints", "Power-play points", true],
+  ["shots", "Shots on goal", true],
+  ["blocks", "Blocks", true],
+  ["wins", "Wins", true],
+  ["goalsAgainst", "Goals against", false],
+  ["saves", "Saves", true],
+  ["shutouts", "Shutouts", true],
+];
+
+function playerMetric(player, key) {
+  if (key === "fantasyPoints") return player.fantasyPoints;
+  return player.stats?.[key] ?? null;
+}
+
+function statCard(player, comparePlayer = null) {
+  const rows = STAT_DEFINITIONS
+    .filter(([key]) => playerMetric(player, key) != null || (comparePlayer && playerMetric(comparePlayer, key) != null))
+    .map(([key, label, higherIsBetter]) => {
+      const value = playerMetric(player, key);
+      const other = comparePlayer ? playerMetric(comparePlayer, key) : null;
+      const leads =
+        Number.isFinite(value) &&
+        Number.isFinite(other) &&
+        value !== other &&
+        (higherIsBetter ? value > other : value < other);
+      const formatted =
+        value == null ? "—" : key === "fantasyPoints" ? Number(value).toFixed(1) : String(value);
+      return `<div class="compare-stat ${leads ? "leader" : ""}"><span>${label}</span><strong>${formatted}</strong></div>`;
+    })
+    .join("");
+  return `<article class="compare-player">
+    <header><span class="pos">${escapeHtml(player.position)}</span><div>
+      <h3>${escapeHtml(player.name)}</h3>
+      <p>${escapeHtml(player.team || "—")} · ADP ${player.adp.toFixed(1)} · Rank ${player.rank}</p>
+    </div></header>
+    <div class="compare-stats">${rows || `<p class="status">No verified NHL stats matched this player.</p>`}</div>
+    ${player.injury ? `<p class="stats-note"><strong>Injury:</strong> ${escapeHtml(player.injury.status)}
+      ${player.injury.bodyPart ? ` · ${escapeHtml(player.injury.bodyPart)}` : ""}</p>` : ""}
+  </article>`;
+}
+
+function renderDetailComparison(compareId = "") {
+  const player = getPlayer(state.activeDetailId);
+  const comparePlayer = compareId ? getPlayer(compareId) : null;
+  if (!player) return;
+  els.detailName.textContent = comparePlayer ? `${player.name} vs. ${comparePlayer.name}` : player.name;
+  els.detailContent.innerHTML = `<div class="compare-grid ${comparePlayer ? "two-up" : ""}">
+    ${statCard(player, comparePlayer)}
+    ${comparePlayer ? statCard(comparePlayer, player) : ""}
+  </div>
+  <p class="stats-note">Official NHL regular-season stats (${player.statsSeason || comparePlayer?.statsSeason || "unavailable"}).
+    Green highlights the better comparable number. Fantasy points use your league scoring.</p>`;
+}
+
 function showDetail(id) {
   const player = getPlayer(id);
   if (!player) return;
-  els.detailName.textContent = player.name;
-  els.detailContent.innerHTML = `
-    <div class="detail-grid">
-      <div class="detail-stat"><span>NHL team</span><strong>${escapeHtml(player.team || "—")}</strong></div>
-      <div class="detail-stat"><span>Position</span><strong>${escapeHtml(player.position)}</strong></div>
-      <div class="detail-stat"><span>Consensus ADP</span><strong>${player.adp.toFixed(1)}</strong></div>
-      <div class="detail-stat"><span>Overall rank</span><strong>${player.rank}</strong></div>
-      <div class="detail-stat"><span>Yahoo ADP</span><strong>${player.yahooAdp?.toFixed(1) || "—"}</strong></div>
-      <div class="detail-stat"><span>ESPN ADP</span><strong>${player.espnAdp?.toFixed(1) || "—"}</strong></div>
-    </div>
-    ${player.injury ? `<p class="stats-note"><strong>Directory injury:</strong> ${escapeHtml(player.injury.status)}
-      ${player.injury.bodyPart ? ` · ${escapeHtml(player.injury.bodyPart)}` : ""}
-      ${player.injury.notes ? `<br>${escapeHtml(player.injury.notes)}` : ""}</p>` : ""}
-    <p class="stats-note">Verified hockey production stats are not wired yet. No goals, assists, saves, or projections are estimated or fabricated in this version.</p>`;
+  state.activeDetailId = id;
+  els.compareSelect.innerHTML = `<option value="">Choose another player…</option>${state.players
+    .filter((candidate) => candidate.id !== id)
+    .map((candidate) => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)} (${escapeHtml(candidate.position)})</option>`)
+    .join("")}`;
+  renderDetailComparison();
   els.playerDialog.showModal();
 }
 
@@ -353,7 +438,7 @@ async function loadPlayers(force = false) {
   } catch (error) {
     els.boardStatus.textContent = error.message;
     els.sourceStatus.textContent = `Data load failed: ${error.message}`;
-    els.playerRows.innerHTML = `<tr><td colspan="8" class="empty">No verified ADP is available. Refresh to retry.</td></tr>`;
+    els.playerRows.innerHTML = `<tr><td colspan="9" class="empty">No verified ADP is available. Refresh to retry.</td></tr>`;
   } finally {
     els.refreshData.disabled = false;
   }
@@ -377,10 +462,8 @@ async function syncSleeper({ quiet = false } = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Sleeper sync failed");
     if (data.sport && data.sport !== "nhl") throw new Error(`Sleeper reports this as a ${data.sport.toUpperCase()} draft, not NHL.`);
-    if (data.teams && [8, 10, 12, 14].includes(data.teams)) {
-      state.settings.teams = data.teams;
-      if (state.settings.slot > data.teams) state.settings.slot = 1;
-      renderSettings();
+    if (data.teams && data.teams !== 12) {
+      throw new Error(`This room is locked to 12 teams; Sleeper reports ${data.teams}.`);
     }
     const bySleeperId = new Map(state.players.filter((p) => p.sleeperId).map((p) => [String(p.sleeperId), p]));
     const byName = new Map(state.players.map((p) => [normalizeName(p.name), p]));
@@ -446,6 +529,7 @@ els.nextPick.addEventListener("click", () => {
 els.search.addEventListener("input", renderBoard);
 els.refreshData.addEventListener("click", () => loadPlayers(true));
 els.syncSleeper.addEventListener("click", () => syncSleeper());
+els.compareSelect.addEventListener("change", () => renderDetailComparison(els.compareSelect.value));
 els.closeDialog.addEventListener("click", () => els.playerDialog.close());
 els.playerDialog.addEventListener("click", (event) => {
   if (event.target === els.playerDialog) els.playerDialog.close();
@@ -455,7 +539,7 @@ els.resetDraft.addEventListener("click", () => {
   clearInterval(state.pollTimer);
   localStorage.removeItem(STORAGE_KEY);
   state.drafted.clear(); state.myTeam.clear(); state.history = []; state.sleeperDraftId = "";
-  state.settings = { teams: 12, slot: 1, scoring: "points", currentPick: 1 };
+  state.settings = { teams: 12, slot: 1, scoring: "custom", currentPick: 1 };
   renderSettings(); render();
 });
 

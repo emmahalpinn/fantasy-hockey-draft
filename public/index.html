@@ -20,19 +20,14 @@
           <h2>League settings</h2>
           <div class="field-pair">
             <label>Teams
-              <select id="teams">
-                <option>8</option><option>10</option><option selected>12</option><option>14</option>
-              </select>
+              <select id="teams" disabled><option selected>12</option></select>
             </label>
             <label>Draft slot
               <select id="slot"></select>
             </label>
           </div>
           <label>Scoring style
-            <select id="scoring">
-              <option value="points" selected>Points</option>
-              <option value="categories">Categories</option>
-            </select>
+            <select id="scoring" disabled><option value="custom" selected>Custom points</option></select>
           </label>
           <label>Current overall pick
             <input id="currentPick" type="number" min="1" value="1" />
@@ -41,6 +36,15 @@
             <button id="prevPick">← Previous</button>
             <button id="nextPick" class="primary">Next pick →</button>
           </div>
+        </section>
+
+        <section class="panel scoring-card">
+          <h2>Your league scoring</h2>
+          <p><strong>Skaters</strong></p>
+          <p>G 6 · A 4 · +/- 2 · PPP 2</p>
+          <p>SOG 0.9 · BLK 1</p>
+          <p><strong>Goalies</strong></p>
+          <p>W 5 · GA -3 · SV 0.6 · SHO 5</p>
         </section>
 
         <section class="panel clock">
@@ -124,6 +128,7 @@
                   <th><button data-sort="position">Pos</button></th>
                   <th><button data-sort="team">Team</button></th>
                   <th><button data-sort="adp">ADP</button></th>
+                  <th><button data-sort="fantasyPoints">FPts</button></th>
                   <th><button data-sort="value">Value now</button></th>
                   <th>Status</th>
                   <th aria-label="Actions"></th>
@@ -137,7 +142,7 @@
         <section id="rosterView" class="view">
           <div class="section-heading">
             <div><p class="eyebrow">Peanut Punch</p><h2>My roster</h2></div>
-            <p>Suggested build: 3 C · 4 W · 4 D · 2 G, then best available.</p>
+            <p>Starters: 2 C · 2 LW · 2 RW · 4 D · 2 G · 5 bench.</p>
           </div>
           <div id="rosterTargets" class="targets"></div>
           <div id="rosterList" class="card-list"></div>
@@ -156,6 +161,9 @@
       <button id="closeDialog" class="close" aria-label="Close">×</button>
       <p class="eyebrow">Player detail</p>
       <h2 id="detailName"></h2>
+      <label class="compare-control">Compare with
+        <select id="compareSelect"><option value="">Choose another player…</option></select>
+      </label>
       <div id="detailContent"></div>
     </dialog>
 

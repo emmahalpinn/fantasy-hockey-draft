@@ -91,6 +91,8 @@ button:hover { border-color: var(--ice); transform: translateY(-1px); }
   background: linear-gradient(135deg, var(--orange), var(--orange-dark));
 }
 .status { margin: .65rem 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.scoring-card p { margin: .32rem 0; color: var(--muted); font-size: .75rem; }
+.scoring-card p strong { color: var(--ice-bright); }
 .clock strong { display: block; margin: .2rem 0; font-size: 2.25rem; }
 .clock span, .clock p { color: var(--muted); }
 .clock p { margin: .6rem 0 0; font-size: .8rem; }
@@ -165,7 +167,7 @@ tr.drafted { opacity: .42; }
 .row-actions button { padding: .35rem .5rem; font-size: .68rem; }
 .row-actions .mine { color: #07170f; background: var(--green); border-color: transparent; }
 .empty { padding: 2.5rem !important; color: var(--muted); text-align: center; }
-.targets { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: 1rem 0; }
+.targets { display: grid; grid-template-columns: repeat(6, 1fr); gap: .8rem; margin: 1rem 0; }
 .target, .draft-card { padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .target strong { display: block; font-size: 1.65rem; }
 .target span { color: var(--muted); font-size: .75rem; }
@@ -176,7 +178,7 @@ tr.drafted { opacity: .42; }
 .draft-card p { margin: .2rem 0 0; color: var(--muted); font-size: .75rem; }
 
 dialog {
-  width: min(520px, calc(100vw - 2rem));
+  width: min(940px, calc(100vw - 2rem));
   padding: 1.4rem;
   color: var(--ice-bright);
   border: 1px solid var(--line);
@@ -191,6 +193,19 @@ dialog h2 { margin: .25rem 0 1rem; }
 .detail-stat { padding: .8rem; border: 1px solid var(--line); border-radius: 9px; background: var(--navy); }
 .detail-stat span { display: block; margin-bottom: .2rem; color: var(--muted); font-size: .68rem; }
 .stats-note { margin: 1rem 0 0; padding: .8rem; border-left: 3px solid var(--orange); color: var(--muted); background: rgba(255,90,31,.06); font-size: .78rem; line-height: 1.45; }
+.compare-control { max-width: 360px; }
+.compare-grid { display: grid; grid-template-columns: 1fr; gap: .85rem; }
+.compare-grid.two-up { grid-template-columns: 1fr 1fr; }
+.compare-player { padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(5, 17, 31, .65); }
+.compare-player header { display: flex; align-items: center; gap: .7rem; margin-bottom: .8rem; }
+.compare-player h3 { margin: 0; font-size: 1rem; }
+.compare-player header p { margin: .2rem 0 0; color: var(--muted); font-size: .72rem; }
+.compare-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: .45rem; }
+.compare-stat { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem .65rem; border: 1px solid var(--line); border-radius: 7px; background: var(--navy); }
+.compare-stat span { color: var(--muted); font-size: .7rem; }
+.compare-stat strong { font-size: .8rem; }
+.compare-stat.leader { border-color: var(--green); background: rgba(67, 209, 158, .1); }
+.compare-stat.leader strong { color: var(--green); }
 
 @media (max-width: 1100px) {
   .recommendation-grid { grid-template-columns: repeat(3, 1fr); }
@@ -206,5 +221,6 @@ dialog h2 { margin: .25rem 0 1rem; }
   .recommendation-grid { grid-template-columns: 1fr; }
   .toolbar { grid-template-columns: 1fr; }
   .targets { grid-template-columns: 1fr 1fr; }
+  .compare-grid.two-up { grid-template-columns: 1fr; }
   .check { padding: 0; }
 }
